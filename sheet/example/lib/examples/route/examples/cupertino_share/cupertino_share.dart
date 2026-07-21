@@ -1,6 +1,6 @@
 import 'dart:ui';
 
-import 'package:flutter/cupertino.dart';
+import 'package:flutter/cupertino.dart' hide CupertinoSheetRoute;
 import 'package:flutter/material.dart';
 import 'package:sheet/route.dart';
 
