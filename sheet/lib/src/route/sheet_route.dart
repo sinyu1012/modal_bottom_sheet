@@ -187,9 +187,20 @@ class SheetRoute<T> extends PageRoute<T> with DelegatedTransitionsRoute<T> {
         controller!.velocity <= 0;
   }
 
+  /// The stops used by the default [SnapSheetPhysics] when [stops] is not
+  /// explicitly provided.
+  ///
+  /// Always includes [initialExtent] so the sheet doesn't immediately snap
+  /// away from the extent it was opened at.
+  @protected
+  List<double> get effectiveStops {
+    if (stops != null) return stops!;
+    return <double>{0, initialExtent, 1}.toList()..sort();
+  }
+
   Widget buildSheet(BuildContext context, Widget child) {
     SheetPhysics? effectivePhysics = SnapSheetPhysics(
-      stops: stops ?? <double>[0, 1],
+      stops: effectiveStops,
       parent: physics,
     );
     if (!draggable) {

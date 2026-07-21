@@ -131,7 +131,7 @@ class CupertinoSheetRoute<T> extends SheetRoute<T> {
   Widget buildSheet(BuildContext context, Widget child) {
     SheetPhysics? effectivePhysics = BouncingSheetPhysics(
         parent: SnapSheetPhysics(
-      stops: stops ?? <double>[0, 1],
+      stops: effectiveStops,
       parent: physics,
     ));
     if (!draggable) {
