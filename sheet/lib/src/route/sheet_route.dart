@@ -392,7 +392,7 @@ class __SheetRouteContainerState extends State<_SheetRouteContainer>
 
   @override
   void dispose() {
-    _routeController.addListener(onRouteAnimationUpdate);
+    _routeController.removeListener(onRouteAnimationUpdate);
     _sheetController.removeListener(onSheetExtentUpdate);
     super.dispose();
   }

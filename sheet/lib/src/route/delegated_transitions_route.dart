@@ -124,7 +124,7 @@ mixin DelegatedTransitionsRoute<T> on ModalRoute<T> {
             ProxyAnimation(nextRoute.animation!);
         // assert(!nextRoute._transitionCompleter.isCompleted,  'Cannot reuse a ${nextRoute.runtimeType} after disposing it.');
         proxyChild = nextRoute.buildSecondaryTransitionForPreviousRoute(
-            context, secondaryAnimation, child);
+            context, secondaryAnimation, proxyChild);
       }
 
       final ProxyAnimation proxySecondaryAnimation =

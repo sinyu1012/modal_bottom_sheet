@@ -137,5 +137,25 @@ void main() {
       await tester.pump();
       expect(tester.getSheetHeight(), greaterThan(kScreenHeight));
     });
+
+    testWidgets(
+        'fit: child height while bouncing top tracks pixels instead of doubling',
+        (WidgetTester tester) async {
+      await tester.pumpApp(
+        Sheet(
+          initialExtent: double.infinity,
+          physics: BouncingSheetPhysics(),
+          child: Container(height: 200),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.getSheetHeight(), equals(200));
+
+      await tester.dragSheet(-100);
+      await tester.pump();
+
+      final double pixels = tester.getSheetPosition().pixels;
+      expect(tester.getSheetHeight(), closeTo(pixels, 1));
+    });
   });
 }

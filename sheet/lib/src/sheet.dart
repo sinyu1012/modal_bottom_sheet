@@ -808,8 +808,7 @@ class RenderSheetViewport extends RenderBox
       double minHeight = expand ? maxHeight : 0;
 
       if (isOverflow) {
-        final double overflowHeight =
-            _childExtentBeforeOverflow! + offset.pixels;
+        final double overflowHeight = offset.pixels;
         maxHeight = overflowHeight;
         minHeight = overflowHeight;
       }
