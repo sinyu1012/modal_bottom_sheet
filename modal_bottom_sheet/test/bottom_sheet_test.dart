@@ -275,6 +275,73 @@ void main() {
       }
     });
 
+    for (final useScaffold in [true, false]) {
+      testWidgets(
+          'ignores Hero offstage progress for ${useScaffold ? 'scaffold' : 'external'} backgrounds',
+          (tester) async {
+        final externalAnimation = AnimationController(vsync: tester);
+        addTearDown(externalAnimation.dispose);
+        late BuildContext scaffoldContext;
+        late AnimationController backgroundAnimation;
+        late ModalRoute<dynamic> sheetRoute;
+        await tester.pumpWidget(MaterialApp(
+          home: CupertinoScaffold(
+            body: Builder(builder: (context) {
+              scaffoldContext = context;
+              backgroundAnimation = useScaffold
+                  ? CupertinoScaffold.of(context)!.animation!
+                  : externalAnimation;
+              return const SizedBox.expand();
+            }),
+          ),
+        ));
+
+        final progress = <double>[];
+        void recordProgress() => progress.add(backgroundAnimation.value);
+        backgroundAnimation.addListener(recordProgress);
+        Widget buildSheet(BuildContext context) {
+          sheetRoute = ModalRoute.of(context)!;
+          return const SizedBox(height: 200);
+        }
+
+        final result = useScaffold
+            ? CupertinoScaffold.showCupertinoModalBottomSheet<void>(
+                context: scaffoldContext,
+                builder: buildSheet,
+              )
+            : showCupertinoModalBottomSheet<void>(
+                context: scaffoldContext,
+                secondAnimation: externalAnimation,
+                builder: buildSheet,
+              );
+        await tester.pump();
+        expect(backgroundAnimation.value, 0);
+        expect(progress, everyElement(0.0));
+        await tester.pump(const Duration(milliseconds: 40));
+        final beforeOffstage = backgroundAnimation.value;
+        expect(beforeOffstage, greaterThan(0));
+        expect(beforeOffstage, lessThan(1));
+
+        sheetRoute.offstage = true;
+        expect(sheetRoute.animation!.value, 1);
+        expect(backgroundAnimation.value, beforeOffstage);
+        sheetRoute.offstage = false;
+        expect(backgroundAnimation.value, beforeOffstage);
+
+        for (var frame = 0; frame < 8; frame++) {
+          await tester.pump(const Duration(milliseconds: 50));
+        }
+        expect(backgroundAnimation.value, 1);
+        expect(progress, orderedEquals([...progress]..sort()));
+        backgroundAnimation.removeListener(recordProgress);
+        Navigator.of(scaffoldContext).pop();
+        await tester.pumpAndSettle();
+        await result;
+        await tester.pumpWidget(const SizedBox.shrink());
+        expect(tester.takeException(), isNull);
+      });
+    }
+
     testWidgets(
         'keeps the background scaled until the last scaffold sheet exits',
         (tester) async {

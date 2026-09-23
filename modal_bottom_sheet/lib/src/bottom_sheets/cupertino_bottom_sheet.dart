@@ -201,6 +201,10 @@ class CupertinoModalBottomSheetRoute<T> extends ModalSheetRoute<T> {
     this.overlayStyle,
   });
 
+  // ModalRoute.animation jumps to 1 during Hero's offstage layout pass.
+  // The visible background must follow the real transition instead.
+  Animation<double>? get _backgroundAnimation => controller?.view;
+
   @override
   Widget buildTransitions(
     BuildContext context,
@@ -520,7 +524,7 @@ class _CupertinoScaffoldState extends State<CupertinoScaffold>
   final Set<Animation<double>> _routeAnimations = {};
 
   void _trackRoute(CupertinoModalBottomSheetRoute<dynamic> route) {
-    final animation = route.animation!;
+    final animation = route._backgroundAnimation!;
     _routeAnimations.add(animation);
     animation.addListener(_updateProgress);
     _updateProgress();

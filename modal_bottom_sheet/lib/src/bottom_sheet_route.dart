@@ -53,19 +53,19 @@ class _ModalBottomSheetState<T> extends State<_ModalBottomSheet<T>> {
 
   @override
   void initState() {
-    widget.route.animation?.addListener(updateController);
+    widget.route._animationController?.addListener(updateController);
     super.initState();
   }
 
   @override
   void dispose() {
-    widget.route.animation?.removeListener(updateController);
+    widget.route._animationController?.removeListener(updateController);
     _scrollController?.dispose();
     super.dispose();
   }
 
   void updateController() {
-    final animation = widget.route.animation;
+    final animation = widget.route._animationController;
     if (animation != null) {
       widget.secondAnimationController?.value = animation.value;
     }
