@@ -397,12 +397,8 @@ class ModalBottomSheetState extends State<ModalBottomSheet>
     if (widget.enableDrag) {
       child = KeyedSubtree(
         key: _childKey,
-        child: AnimatedBuilder(
-          animation: _bounceAnimation,
-          builder: (context, child) => CustomSingleChildLayout(
-            delegate: _CustomBottomSheetLayout(_bounceAnimation.value),
-            child: child,
-          ),
+        child: CustomSingleChildLayout(
+          delegate: _CustomBottomSheetLayout(_bounceAnimation),
           child: GestureDetector(
             onVerticalDragUpdate: (details) {
               _handleDragUpdate(details.delta.dy);
@@ -422,22 +418,15 @@ class ModalBottomSheetState extends State<ModalBottomSheet>
       );
     }
 
-    child = AnimatedBuilder(
-      animation: widget.animationController,
-      builder: (context, Widget? child) {
-        assert(child != null);
-        final animationValue = animationCurve.transform(
-          widget.animationController.value,
-        );
-
-        return ClipRect(
-          child: CustomSingleChildLayout(
-            delegate: _ModalBottomSheetLayout(animationValue, widget.expanded),
-            child: child,
-          ),
-        );
-      },
-      child: child,
+    child = ClipRect(
+      child: CustomSingleChildLayout(
+        delegate: _ModalBottomSheetLayout(
+          widget.animationController,
+          widget.expanded,
+          () => animationCurve,
+        ),
+        child: child,
+      ),
     );
 
     return StatusBarGestureDetector(
@@ -454,10 +443,12 @@ class ModalBottomSheetState extends State<ModalBottomSheet>
 }
 
 class _ModalBottomSheetLayout extends SingleChildLayoutDelegate {
-  _ModalBottomSheetLayout(this.progress, this.expand);
+  _ModalBottomSheetLayout(this.animation, this.expand, this.curve)
+      : super(relayout: animation);
 
-  final double progress;
+  final Animation<double> animation;
   final bool expand;
+  final ParametricCurve<double> Function() curve;
 
   @override
   BoxConstraints getConstraintsForChild(BoxConstraints constraints) {
@@ -471,20 +462,22 @@ class _ModalBottomSheetLayout extends SingleChildLayoutDelegate {
 
   @override
   Offset getPositionForChild(Size size, Size childSize) {
+    final progress = curve().transform(animation.value);
     return Offset(0.0, size.height - childSize.height * progress);
   }
 
   @override
   bool shouldRelayout(_ModalBottomSheetLayout oldDelegate) {
-    return progress != oldDelegate.progress;
+    return animation != oldDelegate.animation ||
+        expand != oldDelegate.expand ||
+        curve != oldDelegate.curve;
   }
 }
 
 class _CustomBottomSheetLayout extends SingleChildLayoutDelegate {
-  _CustomBottomSheetLayout(this.progress);
+  _CustomBottomSheetLayout(this.animation) : super(relayout: animation);
 
-  final double progress;
-  double? childHeight;
+  final Animation<double> animation;
 
   @override
   BoxConstraints getConstraintsForChild(BoxConstraints constraints) {
@@ -492,23 +485,18 @@ class _CustomBottomSheetLayout extends SingleChildLayoutDelegate {
       minWidth: constraints.maxWidth,
       maxWidth: constraints.maxWidth,
       minHeight: constraints.minHeight,
-      maxHeight: constraints.maxHeight + progress * 8,
+      maxHeight: constraints.maxHeight + animation.value * 8,
     );
   }
 
   @override
   Offset getPositionForChild(Size size, Size childSize) {
-    childHeight ??= childSize.height;
     return Offset(0.0, size.height - childSize.height);
   }
 
   @override
   bool shouldRelayout(_CustomBottomSheetLayout oldDelegate) {
-    if (progress != oldDelegate.progress) {
-      childHeight = oldDelegate.childHeight;
-      return true;
-    }
-    return false;
+    return animation != oldDelegate.animation;
   }
 }
 

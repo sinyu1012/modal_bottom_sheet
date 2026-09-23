@@ -12,10 +12,13 @@
 | 重复构造 CupertinoThemeData | 依赖变化时计算主题；起止颜色相同时复用主题，确实需要插值时保留动画路径 |
 | 键盘触发无关转场重建 | 顶部安全区读取改用 MediaQuery.paddingOf |
 | 弹层外壳与手势子树逐帧构建 | 移除路由外层重复动画 builder，复用手势子树；关闭权限在手势时查询 |
+| 前景滑动与回弹逐帧创建布局 widget / delegate | SingleChildLayoutDelegate 的 relayout 直接监听进出场控制器与回弹动画，跳过这两处 build；曲线在布局时读取，保留拖动线性跟手与松手后的衔接 |
 | 动画监听和控制器未释放 | 复用回弹动画，显式释放自有控制器，解绑渲染层监听 |
 | 多个弹窗抢写同一背景控制器 | CupertinoScaffold 汇总存活路由的最大进度，值不变时不通知，保留监听直到 route.completed |
 
 没有截图冻结背景、修改渲染引擎或缩短动画。RepaintBoundary 只隔离绘制，不会暂停后台业务、视频或其他自主动画。动态背景仍可能消耗帧预算。
+
+前景仍需要布局和合成；回弹会改变子内容的高度约束，不能直接替换成仅绘制位移。控制器替换、expanded 改变和内容尺寸变化仍触发布局；监听的接入、换源和解绑由 Flutter 的 RenderCustomSingleChildLayoutBox 管理。普通业务重建仍正常执行 containerBuilder。此改动也作用于共用 ModalBottomSheet 的 Material / Bar 弹层，需要一并回归。
 
 ## 本地接入
 
@@ -41,6 +44,8 @@ flutter test test/bottom_sheet_test.dart
 ```
 
 现有测试覆盖背景变换几何和命中、静态背景构建/绘制次数、监听换源及卸载、键盘变化、多层弹窗、容器构建次数、动态 PopScope。它们验证实现约束，不能替代设备性能数据。
+
+前景回归用例另覆盖进出场坐标、运行中切换曲线、expanded 变化、控制器换源/卸载，以及真实上拉回弹时的几何和布局 widget 复用。这些用例已通过静态分析，但按使用方要求未执行 Flutter test 或构建。
 
 真机对照应使用同一 Android 设备、相同刷新率、同一业务页面和 profile 模式，分别运行上游基线与当前分支：
 

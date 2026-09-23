@@ -1,9 +1,126 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 
 void main() {
+  testWidgets('relayouts the foreground without rebuilding its layout widgets',
+      (tester) async {
+    final animation = ModalBottomSheet.createAnimationController(tester);
+    final replacement = ModalBottomSheet.createAnimationController(tester);
+    final scroll = ScrollController();
+    addTearDown(animation.dispose);
+    addTearDown(replacement.dispose);
+    addTearDown(scroll.dispose);
+    const contentKey = ValueKey('foreground content');
+
+    Widget host(AnimationController controller, {bool expanded = false}) {
+      return MaterialApp(
+        home: ModalBottomSheet(
+          animationController: controller,
+          animationCurve: Curves.linear,
+          scrollController: scroll,
+          expanded: expanded,
+          enableDrag: false,
+          onClosing: () {},
+          child: const SizedBox(key: contentKey, height: 200),
+        ),
+      );
+    }
+
+    await tester.pumpWidget(host(animation));
+    final layouts = find.descendant(
+      of: find.byType(ModalBottomSheet),
+      matching: find.byType(CustomSingleChildLayout),
+    );
+    final layoutWidget = tester.widget<CustomSingleChildLayout>(layouts);
+    final layout =
+        tester.renderObject<RenderCustomSingleChildLayoutBox>(layouts);
+    final height = layout.size.height;
+    for (final progress in [0.25, 0.5, 1.0, 0.75, 0.0]) {
+      animation.value = progress;
+      await tester.pump();
+      expect(tester.widget(layouts), same(layoutWidget));
+      expect(tester.getTopLeft(find.byKey(contentKey)).dy,
+          closeTo(height - 200 * progress, 0.001));
+    }
+
+    // The drag path changes the curve without rebuilding the sheet.
+    tester
+        .state<ModalBottomSheetState>(find.byType(ModalBottomSheet))
+        .animationCurve = Curves.easeIn;
+    animation.value = 0.5;
+    await tester.pump();
+    expect(tester.getTopLeft(find.byKey(contentKey)).dy,
+        closeTo(height - 200 * Curves.easeIn.transform(0.5), 0.001));
+
+    replacement.value = 1;
+    await tester.pumpWidget(host(replacement, expanded: true));
+    expect(tester.getSize(find.byKey(contentKey)).height, height);
+    expect(tester.getTopLeft(find.byKey(contentKey)).dy, 0);
+    animation.value = 0.8;
+    expect(layout.debugNeedsLayout, isFalse);
+    replacement.value = 0.5;
+    expect(layout.debugNeedsLayout, isTrue);
+    await tester.pump();
+    expect(tester.getTopLeft(find.byKey(contentKey)).dy,
+        closeTo(height * (1 - Curves.easeIn.transform(0.5)), 0.001));
+
+    await tester.pumpWidget(const SizedBox());
+    replacement.value = 0.25;
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('preserves bounce geometry with stable foreground layout widgets',
+      (tester) async {
+    final animation = ModalBottomSheet.createAnimationController(tester)
+      ..value = 1;
+    final scroll = ScrollController();
+    addTearDown(animation.dispose);
+    addTearDown(scroll.dispose);
+    const contentKey = ValueKey('bouncing foreground');
+    await tester.pumpWidget(MaterialApp(
+      home: ModalBottomSheet(
+        animationController: animation,
+        scrollController: scroll,
+        expanded: true,
+        onClosing: () {},
+        child: const SizedBox.expand(
+          key: contentKey,
+          child: ColoredBox(color: Colors.blue),
+        ),
+      ),
+    ));
+    final layouts = find.descendant(
+      of: find.byType(ModalBottomSheet),
+      matching: find.byType(CustomSingleChildLayout),
+    );
+    final widgets = tester.widgetList(layouts).toList();
+    final initialBounds = tester.getRect(find.byKey(contentKey));
+    final gesture = await tester.startGesture(initialBounds.center);
+    await gesture.moveBy(const Offset(0, -40));
+    await gesture.moveBy(const Offset(0, -80));
+    await tester.pump();
+    final stretchedBounds = tester.getRect(find.byKey(contentKey));
+    expect(stretchedBounds.height, greaterThan(initialBounds.height));
+    expect(stretchedBounds.height, lessThanOrEqualTo(initialBounds.height + 8));
+    expect(stretchedBounds.bottom, closeTo(initialBounds.bottom, 0.001));
+    await gesture.up();
+    for (var frame = 0; frame < 4; frame++) {
+      await tester.pump(const Duration(milliseconds: 40));
+      final current = tester.widgetList(layouts).toList();
+      for (var index = 0; index < widgets.length; index++) {
+        expect(current[index], same(widgets[index]));
+      }
+    }
+    await tester.pumpAndSettle();
+    expect(tester.getRect(find.byKey(contentKey)), initialBounds);
+    await tester.pumpWidget(const SizedBox());
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'keeps the default secondary transition dismissed for modal routes',
     (tester) async {
